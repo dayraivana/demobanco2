@@ -249,7 +249,7 @@ Output:"""
 
 def main():
     # Extraer evento de entrada proporcionado por Code Engine
-    event_data = os.getenv("CE_SUBSCRIBED_EVENT")
+    event_data = os.getenv("CE_DATA")
     if not event_data:
         print("No se recibió evento. Asegúrate de que el evento está configurado correctamente.")
         return
@@ -257,8 +257,8 @@ def main():
     try:
         # Parsear los datos del evento
         event = json.loads(event_data)
-        bucket_name = event.get('bucket_name')  # Extraer nombre del bucket
-        object_name = event.get('object_key')  # Extraer nombre del archivo
+        bucket_name = event.get('bucket')  # Extraer nombre del bucket
+        object_name = event.get('key')  # Extraer nombre del archivo
 
         if not bucket_name or not object_name:
             print("El evento no contiene 'bucket_name' o 'object_key'.")
