@@ -99,41 +99,8 @@ def process_pdf(pdf_name, bucket_name="poc-asbanc"):
         contenido = txt_file.read()
 
 
+    input = contenido
 
-    input =  """ Miraflores, 2 de febrero del 2024
-Señor(a):
-CLARA PERALTA
-Presente.
-Ref.: Solicitud N° 24012900912
-Estimado(a) cliente:
-Tenemos el agrado de dirigirnos a usted para saludarle cordialmente y a la vez informarle el resultado de su Reclamo
-presentado el día 26/01/2024, asociado a su Producto: Tarjeta de crédito con número de cuenta:
-4890680013597178.
-Al respecto, validamos que el cobro de la comisión por membresía es correcto debido a que cuando contrató la
-Tarjeta de Crédito Cencosud, le fue informada a través de la Hoja Resumen adjunta al Contrato, la cual firmó dando
-su conformidad.
-Asimismo, le comunicamos sobre la fecha de cargo a través de un mensaje en sus estados de cuenta.
-Adicionalmente, la exoneración de membresía aplicará si el Cliente realiza uno o más consumos por un monto
-mínimo acumulado de S/50.00 soles al mes, durante los 12 meses previos al cobro de la comisión con la tarjeta
-titular o adicional. Se considera consumo a las compras, disposición de efectivo, seguros y asistencias con cargo a
-la Tarjeta de Crédito y otros cargos recurrentes (no incluye Seguro de Desgravamen).
-Respecto a su pedido de cancelación de la tarjeta, no tenemos registrado en nuestro sistema ningún requerimiento
-de cancelación.
-Para cualquier consulta, agradeceremos sirva comunicarse con nuestra Central Telefónica, llamando al 610 7900 en
-Lima o al 0801 00420 en provincias, o acercarse a nuestra Agencia Principal o cualquiera de nuestros Centros de
-Tarjeta ubicados en Wong y Metro, donde gustosamente le atenderemos.
-Sin otro particular y por lo antes expuesto le informamos que el resultado de su solicitud fue No Procedente
-Nos despedimos cordialmente.
-La Rosa Temoche, Lucero Lilibeth
-Soluciones al Cliente
-Tarjeta Cencosud
-Si no estuviese conforme con la respuesta brindada a su reclamo, puede reiterarlo para una nueva evaluación. De igual manera, tiene la opción de
-acudir a la Defensoría del Cliente Financiero (www.dcf.pe) o llamando al teléfono 0 800 1 6777 (línea gratuita). Le recordamos que también puede
-acudir a la SBS o Indecopi, si lo considera conveniente.
-Si no estuviese conforme con la respuesta brindada a su reclamo, puede reiterarlo para una nueva evaluación. De igual manera, tiene la opción de
-acudir a la Defensoría del Cliente Financiero (www.dcf.pe) o llamando al teléfono 0 800 1 6777 (línea gratuita). Le recordamos que también puede
-acudir a la SBS o Indecopi, si lo considera conveniente.
-""" 
 
     prompt_input = f"""Recibirás documentos que corresponden a cartas o documentos que responden a reclamos de usuarios por temas relacionados con entidades bancarias. La información siempre estará en español. Lo que debes de hacer es extraer y solamente darme la información como campo: información. Los campos a extraer son los siguientes:
 1.	Monto (S/ o soles) de algún pago realizado, de alguna devolución, etc. 
@@ -274,10 +241,10 @@ def main():
 
 if __name__ == "__main__":
     # Simula un evento configurando manualmente la variable de entorno
-#    os.environ["CE_SUBSCRIBED_EVENT"] = json.dumps({
-#        "bucket_name": "poc-asbanc",   # Nombre de tu bucket
-#        "object_key": "1. Carta BCP ok.pdf"  # Nombre de tu archivo PDF
-#    })
+  #  os.environ["CE_DATA"] = json.dumps({
+   #     "bucket": "poc-asbanc",   # Nombre de tu bucket
+   #     "key": "2. Carta Cencosud OK.pdf"  # Nombre de tu archivo PDF
+   # })
 
     # Ejecutar la función principal
     main()
