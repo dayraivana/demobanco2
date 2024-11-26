@@ -1,0 +1,7 @@
+requests
+python-dotenv
+urllib3
+pandas
+ibm-cos-sdk
+pdfplumber
+ibm_watsonx_ai
