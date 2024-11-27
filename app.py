@@ -1,21 +1,26 @@
 import sys
 from dotenv import load_dotenv
 import pandas as pd
+import csv
 ##Librerías para guardar en ICOS
 from ibm_botocore.client import Config
+from ibm_botocore.exceptions import ClientError
 import ibm_boto3
 import json
 import random
 import pdfplumber
+from concurrent.futures import ThreadPoolExecutor
 import os
 import getpass
-from ibm_watsonx_ai.foundation_models import Model
+from ibm_watsonx_ai.foundation_models import ModelInference
+import tempfile
 
 load_dotenv()
 
 api_key = os.getenv("API_KEY")
+csv_name="Reclamos.csv"
 
-##credentials de ICOS
+##credenciales de ICOS
 credentials = {
     'IBM_API_KEY_ID': os.getenv("IBM_API_KEY_ID"),
     'IAM_SERVICE_ID': os.getenv("IAM_SERVICE_ID"),
@@ -31,6 +36,7 @@ cos = ibm_boto3.client(service_name='s3',
     config=Config(signature_version='oauth'),
     endpoint_url=credentials['ENDPOINT'])
 
+##credenciales de watsonx
 def get_credentials():
 	return {
 		"url":"https://us-south.ml.cloud.ibm.com",
@@ -49,7 +55,7 @@ project_id = os.getenv("PROJECT_ID")
 space_id = os.getenv("SPACE_ID")
 
 
-model = Model(
+model = ModelInference(
 	model_id = model_id,
 	params = parameters,
 	credentials = get_credentials(),
@@ -57,36 +63,36 @@ model = Model(
 	space_id = space_id
 	)
 
+# temp_dir = tempfile.gettempdir()
+temp_dir = "/dev/shm"
+
 # Función principal
 def process_pdf(pdf_name, bucket_name="poc-asbanc"):
-    # Descargar el PDF de ICOS
-    #local_pdf = f"/tmp/{pdf_name}"
-    local_pdf = f"{pdf_name}"
-    cos.download_file(bucket_name, pdf_name, local_pdf)
 
+    local_pdf = f"{temp_dir}/{pdf_name}"
+    local_txt = f"{temp_dir}/{os.path.splitext(pdf_name)[0]}.txt"
+    local_csv = f"{temp_dir}/{csv_name}"  # Ruta temporal para trabajar con el archivo
+    
+    # Descargar el PDF de ICOS
+    cos.download_file(bucket_name, pdf_name, local_pdf)
+    
     # Extraer texto del PDF
-    #local_txt = f"/tmp/{os.path.splitext(pdf_name)[0]}.txt"
-    local_txt = f"{os.path.splitext(pdf_name)[0]}.txt"    
     with pdfplumber.open(local_pdf) as pdf, open(local_txt, 'w', encoding='utf-8') as txt_file:
         for page in pdf.pages:
             text = page.extract_text()
             if text:
                 txt_file.write(text + '\n')
 
-# Leer texto extraído
+    # Leer texto extraído
     with open(local_txt, 'r', encoding='utf-8') as txt_file:
         contenido = txt_file.read()
 
-
-    input = contenido
-
-
-    prompt_input = f"""Recibirás documentos que corresponden a cartas o documentos que responden a reclamos de usuarios por temas relacionados con entidades bancarias. La información siempre estará en español. Lo que debes de hacer es extraer y solamente darme la información como campo: información. Los campos a extraer son los siguientes:
+    prompt_input = f"""Recibirás documentos que corresponden a cartas o documentos que responden a reclamos de usuarios por temas relacionados con entidades bancarias. La información siempre estará en español. Lo que debes de hacer es extraer y solamente darme la información como respuesta en formato csv. Los campos a extraer son los siguientes:
 1.	Monto (S/ o soles) de algún pago realizado, de alguna devolución, etc. 
 2.	Fecha de cuando se envia la carta por parte de la entidad bancaria
 3.  Fecha de cuando se presentó el reclamo a la entidad bancaria. 
 4.	Numero de solicitud
-5.	Actualizacion del reclamo (explicarle lo que está sucediendo y lo que debería de hacer)
+5.	Actualizacion del reclamo (generar un resumen breve del reclamo y de su estado actual)
 6.	Nombre de la entidad bancaria
 7.	Nombre del cliente
 8.	Producto (tipo de tarjeta de crédito, tipo de cuenta)
@@ -159,29 +165,53 @@ de nuestra banca por teléfono 311-9898. También puedes acudir a la Defensoría
 Competencia y de la Protección de la Propiedad Intelectual o a la Superintendencia de Banca, Seguros
 y AFP´S.
 
-Output: Monto: S/ 500.00
-Fecha de envío de carta: 16/11/2023
-Fecha de solicitud: 11/10/2023
-Número de solicitud: N°C22216963
-Actualización del reclamo: La solicitud de devolución de S/ 500.00 no ha sido aceptada, ya que la operación fue realizada con la tarjeta de Débito e ingreso de la clave de 4 dígitos. Se recomienda tomar precauciones al utilizar la tarjeta de débito y en caso de robo o pérdida, comunicarse inmediatamente al 311-9898 (*0) para bloquear la tarjeta.
-Nombre de la entidad bancaria: Banco de Crédito del Perú (BCP)
-Nombre del cliente: Mariela
-Producto: Cuenta de Ahorros nro. 191-72573473-0-36, Tarjeta de Débito e ingreso de la clave de 4 dígitos.
+Output: S/ 500.00; 16/11/2023; 11/10/2023; N°C22216963; La solicitud de devolución de S/ 500.00 no ha sido aceptada, ya que la operación fue realizada con la tarjeta de Débito e ingreso de la clave de 4 dígitos. Se recomienda tomar precauciones al utilizar la tarjeta de débito y en caso de robo o pérdida, comunicarse inmediatamente al 311-9898 (*0) para bloquear la tarjeta.; Banco de Crédito del Perú (BCP); Mariela; Cuenta de Ahorros
 
-Input: {input}
+Input: {contenido}
 Output:"""
 
+
     respuesta_generada = model.generate_text(prompt=prompt_input, guardrails=False)
-    print(respuesta_generada)
 
     # Guardar resultados en un CSV
-    result_csv = f"{os.path.splitext(pdf_name)[0]}_respuesta.csv"
-    with open(result_csv, 'w', encoding='utf-8') as salida:
-        salida.write(respuesta_generada)
 
-
-    cos.upload_file(result_csv, bucket_name, os.path.basename(result_csv))
-    print(f"Resultados subidos como {os.path.basename(result_csv)}")
+    try:
+        # Intentar obtener metadatos del archivo en COS
+        cos.head_object(Bucket=bucket_name, Key="Reclamos.csv")
+        
+        # Descargar el archivo existente
+        cos.download_file(bucket_name, csv_name, local_csv)
+        
+        # Abrir el archivo en modo 'append'
+        with open(local_csv, 'a', newline='', encoding='utf-8') as salida:
+            writer = csv.writer(salida)
+            # Escribir los nuevos datos
+            datos = respuesta_generada.split(';')  # Asegúrate de estructurar los datos correctamente
+            writer.writerow(datos)
+        
+        # Subir el archivo actualizado de nuevo al bucket
+        cos.upload_file(local_csv, bucket_name, Key=csv_name)
+        print(f"Archivo actualizado y subido a {csv_name} en el bucket.")
+    
+    except ClientError as e:
+        if e.response['Error']['Code'] == '404':
+            
+            # Crear un nuevo archivo CSV
+            local_csv = f"{temp_dir}/{csv_name}"  # Ruta temporal para trabajar con el archivo
+            with open(local_csv, 'w', newline='', encoding='utf-8') as salida:
+                writer = csv.writer(salida)
+                # Escribir encabezados
+                writer.writerow(["Monto", "Fecha de envío de carta", "Fecha de solicitud", "Número de solicitud", "Actualización del reclamo", "Nombre de la entidad bancaria", "Nombre del cliente", "Producto"])  # Cambia esto según tus columnas
+                # Escribir los datos iniciales
+                datos = respuesta_generada.split(';')
+                writer.writerow(datos)
+            
+            # Subir el archivo nuevo al bucket
+            cos.upload_file(local_csv, bucket_name, csv_name)
+            print(f"Archivo creado y subido como {csv_name} en el bucket.")
+        else:
+            print(f"Error al verificar el archivo {csv_name}: {e}")
+            raise
 
 
 def main():
@@ -209,12 +239,14 @@ def main():
     except Exception as e:
         print(f"Error procesando el evento: {e}")
 
+
+
 if __name__ == "__main__":
     # Simula un evento configurando manualmente la variable de entorno
-  #  os.environ["CE_DATA"] = json.dumps({
-   #     "bucket": "poc-asbanc",   # Nombre de tu bucket
-   #     "key": "2. Carta Cencosud OK.pdf"  # Nombre de tu archivo PDF
-   # })
+#    os.environ["CE_DATA"] = json.dumps({
+#        "bucket": "poc-asbanc",   # Nombre de tu bucket
+#        "key": "2. Carta Cencosud OK.pdf"  # Nombre de tu archivo PDF
+#    })
 
     # Ejecutar la función principal
     main()
