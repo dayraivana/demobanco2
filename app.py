@@ -197,7 +197,7 @@ Output:"""
 
     # Guardar resultados en un CSV
     result_csv = f"{os.path.splitext(pdf_name)[0]}_respuesta.csv"
-    with open(result_csv, 'w') as salida:
+    with open(result_csv, 'w', encoding='utf-8') as salida:
         salida.write(respuesta_generada)
 
 
