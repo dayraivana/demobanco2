@@ -41,7 +41,7 @@ model_id = "mistralai/mixtral-8x7b-instruct-v01"
 
 parameters = {
     "decoding_method": "greedy",
-    "max_new_tokens": 200,
+    "max_new_tokens": 900,
     "repetition_penalty": 1
 }
 
@@ -56,14 +56,6 @@ model = Model(
 	project_id = project_id,
 	space_id = space_id
 	)
-
-# Guardando el scoring
-#cos.download_file(credentials['BUCKET'], '2_Carta_Cencosud_OK.pdf', '2_Carta_CENSOSUD_OK.pdf')
-
-# Ruta del archivo PDF
-#pdf_path = '1_Carta_BCP_ok.pdf'
-#txt_path = '1_Carta_BCP_ok.txt'
-
 
 # Función principal
 def process_pdf(pdf_name, bucket_name="poc-asbanc"):
@@ -80,19 +72,6 @@ def process_pdf(pdf_name, bucket_name="poc-asbanc"):
             text = page.extract_text()
             if text:
                 txt_file.write(text + '\n')
-
-# Extraer texto del PDF
-#with pdfplumber.open(pdf_path) as pdf, open(txt_path, 'w', encoding='utf-8') as txt_file:
-#    for page in pdf.pages:
-#        text = page.extract_text()
-#        if text:  # Comprobar si hay texto en la página
-#            txt_file.write(text)
-#            txt_file.write('\n')  # Separar las páginas con una línea nueva
-
-#txt_path="1_Carta_BCP_ok.txt"
-
-#with open(txt_path, 'r', encoding='utf-8') as txt_file:
-#    contenido = txt_file.read()  # Leer todo el contenido del archivo
 
 # Leer texto extraído
     with open(local_txt, 'r', encoding='utf-8') as txt_file:
@@ -201,17 +180,8 @@ Output:"""
         salida.write(respuesta_generada)
 
 
-#with open('respuesta_reclamo.csv', 'w') as salida:
-#    salida.write(respuesta_generada)
-
     cos.upload_file(result_csv, bucket_name, os.path.basename(result_csv))
     print(f"Resultados subidos como {os.path.basename(result_csv)}")
-
-#cos.upload_file('respuesta_reclamo.csv', 'asbanc', 'respuesta_reclamo.csv')
-
-#if __name__ == "__main__":
-#    input_pdf = os.getenv("INPUT_PDF", "1. Carta BCP ok.pdf")  # Nombre del PDF
-#    process_pdf(input_pdf)
 
 
 def main():
